@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Local job discovery, matching and application assistant",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22.13"

@@ -419,3 +419,8 @@ tests/                vitest suites and fixture forms
 
 **Privacy:** `resume/`, `data/`, `reports/`, `browser-profile/`, `.env`, `config/profile.yaml` and
 `config/search.yaml` are all in `.gitignore`.
+
+## License
+
+[MIT](LICENSE): free to use, copy, modify and share, including commercially, as long as the license notice is
+kept. Provided as is, without warranty.
