@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Fixture: Greenhouse-style application</title>
+    <style>
+      .listbox { border: 1px solid #ccc; margin: 0; padding: 0; list-style: none; }
+      .listbox[hidden] { display: none; }
+      [role='option'] { padding: 4px; cursor: pointer; }
+      .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    </style>
+  </head>
+  <body>
+    <h1>QA Engineer</h1>
+    <p>Thank you for your interest in this role. (Boilerplate that must not count as a confirmation.)</p>
+    <form id="app">
+      <div class="field"><label for="first_name">First Name*</label><input id="first_name" required /></div>
+      <div class="field"><label for="last_name">Last Name*</label><input id="last_name" required /></div>
+      <div class="field"><label for="email">Email*</label><input id="email" required /></div>
+
+      <div class="field">
+        <label id="country-label">Country*</label>
+        <input id="country" role="combobox" aria-labelledby="country-label" aria-required="true" aria-controls="country-listbox" aria-expanded="false" class="select__input" />
+        <ul id="country-listbox" role="listbox" class="listbox" hidden></ul>
+      </div>
+
+      <div class="field"><label for="phone">Phone*</label><input id="phone" type="tel" required /></div>
+
+      <div class="field">
+        <label>Resume/CV*</label>
+        <button type="button">Attach</button>
+        <input id="resume" type="file" class="visually-hidden" />
+      </div>
+
+      <div class="field">
+        <label id="q1-label">How many years of professional experience do you have in SDET or QA Automation?*</label>
+        <input id="q1" role="combobox" aria-labelledby="q1-label" aria-required="true" aria-controls="q1-listbox" aria-expanded="false" />
+        <ul id="q1-listbox" role="listbox" class="listbox" hidden></ul>
+      </div>
+
+      <div class="field">
+        <label id="q2-label">Are you able to work from our Bangalore office at least three days a week?*</label>
+        <input id="q2" role="combobox" aria-labelledby="q2-label" aria-required="true" aria-controls="q2-listbox" aria-expanded="false" />
+        <ul id="q2-listbox" role="listbox" class="listbox" hidden></ul>
+      </div>
+
+      <div class="field"><label for="salary">What are your salary expectations around the role?*</label><input id="salary" required /></div>
+      <div class="field"><label for="linkedin">LinkedIn Profile</label><input id="linkedin" /></div>
+
+      <div class="field">
+        <label for="gender">Gender</label>
+        <select id="gender"><option value="">Select...</option><option>Male</option><option>Female</option><option>Decline to self identify</option></select>
+      </div>
+
+      <div class="field"><label><input type="checkbox" name="consent" required /> I agree to the privacy policy*</label></div>
+
+      <button type="submit">Submit application</button>
+    </form>
+
+    <script>
+      const OPTIONS = {
+        country: ['India', 'Indonesia', 'Ireland', 'Israel', 'Italy', 'Japan', 'United Kingdom', 'United States'],
+        q1: ['0', '1', '1.5', '2', '3', '4', '5+'],
+        q2: ['Yes', 'No'],
+      };
+      window.__submitted = null;
+      for (const [id, options] of Object.entries(OPTIONS)) {
+        const input = document.getElementById(id);
+        const list = document.getElementById(`${id}-listbox`);
+        const render = () => {
+          const q = input.value.toLowerCase();
+          const shown = id === 'country' && q ? options.filter((o) => o.toLowerCase().startsWith(q)) : options;
+          list.innerHTML = shown.map((o) => `<li role="option">${o}</li>`).join('');
+          list.hidden = false;
+          input.setAttribute('aria-expanded', 'true');
+        };
+        input.addEventListener('click', render);
+        input.addEventListener('input', render);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') { list.hidden = true; input.setAttribute('aria-expanded', 'false'); }
+        });
+        list.addEventListener('click', (e) => {
+          const li = e.target.closest('[role=option]');
+          if (!li) return;
+          input.value = li.textContent;
+          input.dataset.chosen = li.textContent;
+          list.hidden = true;
+        });
+      }
+      document.getElementById('app').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const f = e.target;
+        const missing = [...f.querySelectorAll('[required], [aria-required=true]')].filter((el) =>
+          el.type === 'checkbox' ? !el.checked : el.getAttribute('role') === 'combobox' ? !el.dataset.chosen : !el.value,
+        );
+        if (missing.length) { missing.forEach((m) => m.setAttribute('aria-invalid', 'true')); return; }
+        window.__submitted = {
+          first: f.first_name.value, last: f.last_name.value, email: f.email.value, country: f.country.dataset.chosen,
+          phone: f.phone.value, resume: f.resume.files[0]?.name, years: f.q1.dataset.chosen, office: f.q2.dataset.chosen,
+          salary: f.salary.value, gender: f.gender.value,
+        };
+        document.body.innerHTML = '<h1>Thank you for applying!</h1><p>Your application has been submitted.</p>';
+      });
+    </script>
+  </body>
+</html>

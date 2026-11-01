@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Fixture: Lever-style application</title>
+  </head>
+  <body>
+    <form id="app">
+      <ul>
+        <li class="application-question">
+          <label><div class="application-label">Resume/CV ✱</div><input type="file" name="resume" id="resume-upload-input" tabindex="-1" style="opacity:0;width:1px;height:1px" /></label>
+        </li>
+        <li class="application-question"><label><div class="application-label">Full name ✱</div><input name="name" required /></label></li>
+        <li class="application-question"><label><div class="application-label">Email ✱</div><input type="email" name="email" required /></label></li>
+        <li class="application-question"><label><div class="application-label">Phone ✱</div><input name="phone" required /></label></li>
+        <li class="application-question"><label><div class="application-label">Current company ✱</div><input name="org" required /></label></li>
+        <li class="application-question"><label><div class="application-label">LinkedIn URL</div><input name="urls[LinkedIn]" /></label></li>
+        <li class="application-question"><label><div class="application-label">Naukri URL</div><input name="urls[Naukri]" /></label></li>
+      </ul>
+      <div class="application-question custom-question">
+        <div class="application-label"><div class="text">Gender ✱</div></div>
+        <ul>
+          <li><label><input type="radio" name="cards[x][field0]" value="Male" required /><span>Male</span></label></li>
+          <li><label><input type="radio" name="cards[x][field0]" value="Female" required /><span>Female</span></label></li>
+          <li><label><input type="radio" name="cards[x][field0]" value="Prefer not to disclose" required /><span>Prefer not to disclose</span></label></li>
+        </ul>
+      </div>
+      <div class="application-question custom-question">
+        <label><div class="application-label">Total Years of experience ✱</div><input name="cards[x][field1]" class="card-field-input" required /></label>
+      </div>
+      <div class="application-question custom-question">
+        <label><div class="application-label">Current Compensation (Yearly) ✱</div><input name="cards[x][field4]" class="card-field-input" required /></label>
+      </div>
+      <div class="application-question custom-question">
+        <label><div class="application-label">Expected Compensation (Yearly) ✱</div><input name="cards[x][field5]" class="card-field-input" required /></label>
+      </div>
+      <div class="application-question custom-question">
+        <label><div class="application-label">Notice Period (In days) ✱</div><input name="cards[x][field6]" class="card-field-input" required /></label>
+      </div>
+      <div class="application-question custom-question">
+        <label><div class="application-label">How did you get to know about this role? ✱</div>
+          <select name="cards[x][field8]" required><option value="">Select...</option><option>Linkedin</option><option>Company Job Site</option><option>Naukri</option></select>
+        </label>
+      </div>
+      <button type="submit" id="btn-submit">SUBMIT APPLICATION</button>
+    </form>
+    <script>
+      window.__submitted = null;
+      document.getElementById('app').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target));
+        window.__submitted = { ...data, resume: data.resume?.name };
+        // Simulate a CAPTCHA challenge before the confirmation appears.
+        const frame = document.createElement('iframe');
+        frame.title = 'hCaptcha challenge';
+        frame.width = '320';
+        frame.height = '320';
+        frame.srcdoc = '<p>Select all the buses</p>';
+        document.body.append(frame);
+        setTimeout(() => {
+          frame.remove();
+          document.body.innerHTML = '<h2>Application submitted!</h2><p>We’ve received your application.</p>';
+        }, 3500);
+      });
+    </script>
+  </body>
+</html>

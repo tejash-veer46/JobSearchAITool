@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JobApplyAI</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">JobApplyAI</div>
+      <nav class="views" id="views" aria-label="Views">
+        <button class="view-btn active" data-view="jobs" type="button">Jobs</button>
+        <button class="view-btn" data-view="batch" type="button">Batch <span class="count" id="batchCount"></span></button>
+        <button class="view-btn" data-view="tracker" type="button">Tracker</button>
+      </nav>
+      <div class="pills" id="pills"></div>
+      <div class="topbar-right">
+        <span class="muted small" id="lastRun"></span>
+        <button class="btn" id="runBtn" type="button">Fetch new jobs</button>
+      </div>
+    </header>
+
+    <div class="banner hidden" id="gapBanner"></div>
+
+    <!-- Jobs -->
+    <div id="view-jobs" class="view">
+      <nav class="toolbar">
+        <div class="tabs" role="tablist" id="tabs">
+          <button role="tab" data-view="ready" class="tab active">Ready to apply</button>
+          <button role="tab" data-view="near" class="tab">Near misses</button>
+          <button role="tab" data-view="applied" class="tab">Applied</button>
+          <button role="tab" data-view="rejected" class="tab">Rejected</button>
+          <button role="tab" data-view="all" class="tab">All</button>
+        </div>
+        <input type="search" id="search" placeholder="Search title, company, city" aria-label="Search jobs" />
+      </nav>
+      <main class="layout">
+        <section class="list" id="list" aria-label="Jobs"></section>
+        <section class="detail" id="detail" aria-live="polite">
+          <div class="empty">Pick a job on the left.</div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Batch -->
+    <div id="view-batch" class="view page hidden">
+      <div class="page-head">
+        <div>
+          <h2>Prefilled tabs</h2>
+          <div class="muted" id="batchSummary">No batch yet.</div>
+        </div>
+        <button class="btn primary" id="batchBtn" type="button">Prepare next 20</button>
+      </div>
+      <div class="card hidden" id="confirmCard">
+        <h3>Did you apply?</h3>
+        <p class="muted small">Jobs you opened in your own browser, or tabs closed before a submission was detected. One click records each.</p>
+        <div id="confirmList"></div>
+      </div>
+      <div class="card">
+        <p class="muted small" style="margin-top:0">
+          Each job is open in its own tab in the assistant Chrome window, filled as far as the facts allow. Check the tab, answer anything
+          left (highlighted below), and press the site's own Submit button. Submissions are detected and recorded automatically.
+        </p>
+        <div id="batchTable"></div>
+      </div>
+    </div>
+
+    <!-- Tracker -->
+    <div id="view-tracker" class="view page hidden">
+      <div class="stats" id="trackerStats"></div>
+      <div class="card">
+        <div class="cal-head">
+          <div class="row">
+            <button class="btn" id="calPrev" type="button" aria-label="Previous month">‹</button>
+            <strong id="calTitle"></strong>
+            <button class="btn" id="calNext" type="button" aria-label="Next month">›</button>
+            <button class="btn ghost" id="calToday" type="button">Today</button>
+          </div>
+          <div class="row legend" id="legend"></div>
+        </div>
+        <div class="calendar" id="calendar"></div>
+      </div>
+      <div class="tracker-cols">
+        <div class="card">
+          <h3>Coming up</h3>
+          <div id="upcoming"></div>
+        </div>
+        <div class="card grow">
+          <div class="page-head">
+            <h3 style="margin:0">Applications</h3>
+            <div class="row">
+              <select id="stageFilter" class="field-input" style="width:auto"><option value="">All stages</option></select>
+              <button class="btn" id="addAppBtn" type="button">+ Add application</button>
+            </div>
+          </div>
+          <div id="appTable"></div>
+        </div>
+      </div>
+    </div>
+
+    <dialog id="runDialog">
+      <div class="dialog-head">
+        <strong>Fetching jobs</strong>
+        <button class="btn ghost" type="button" id="runClose">Close</button>
+      </div>
+      <pre id="runLog" class="log"></pre>
+    </dialog>
+
+    <dialog id="appDialog"><div id="appDialogBody"></div></dialog>
+
+    <dialog id="addDialog">
+      <form id="addForm" method="dialog">
+        <div class="dialog-head"><strong>Add an application you made elsewhere</strong></div>
+        <div class="form-grid">
+          <label>Company<input class="field-input" name="company" required /></label>
+          <label>Role<input class="field-input" name="title" required /></label>
+          <label>Link<input class="field-input" name="url" type="url" placeholder="https://" /></label>
+          <label>Location<input class="field-input" name="location" /></label>
+          <label>Applied on<input class="field-input" name="appliedAt" type="date" /></label>
+          <label class="span2">Notes<textarea class="field-input" name="notes" placeholder="Portal, referral, recruiter..."></textarea></label>
+        </div>
+        <div class="row" style="justify-content:flex-end;margin-top:12px">
+          <button class="btn ghost" value="cancel" type="button" id="addCancel">Cancel</button>
+          <button class="btn primary" type="submit">Add</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

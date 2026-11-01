@@ -1,0 +1,20 @@
+node_modules/
+.env
+
+# Personal data stays on this machine
+resume/
+data/
+reports/
+browser-profile/
+config/profile.yaml
+config/search.yaml
+# Resumes and documents dropped in the project root
+/*.tex
+/*.pdf
+/*.doc
+/*.docx
+
+# Local tooling
+.demo/
+.claude/
+*.log

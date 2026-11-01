@@ -1,0 +1,31 @@
+{
+  "name": "jobapplyai",
+  "version": "0.1.0",
+  "description": "Local job discovery, matching and application assistant",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "cli": "tsx src/cli.ts",
+    "dashboard": "tsx src/cli.ts dashboard",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.136.0",
+    "commander": "^15.0.0",
+    "mammoth": "^1.13.0",
+    "playwright-core": "^1.64.1",
+    "unpdf": "^1.9.1",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

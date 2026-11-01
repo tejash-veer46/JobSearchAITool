@@ -1,0 +1,163 @@
+# What to look for and where. Your own copy is config/search.yaml (created from this
+# example on first run, and never committed). Edit that one, then run: npm run cli -- run
+
+filters:
+  # Jobs asking for more years than this are rejected before scoring.
+  max_required_years: 3
+  # Ignore postings older than this many days.
+  max_age_days: 30
+  # Extra words that make a title relevant / irrelevant (case-insensitive).
+  extra_title_keywords: []
+  extra_title_excludes: []
+  # Include manual-testing roles (scored lower than automation roles).
+  include_manual_qa: true
+
+scoring:
+  # Score (0-100) a job needs to be staged for applying.
+  qualify_threshold: 75
+  # Cap on jobs scored per run (limits Claude API spend).
+  max_scored_per_run: 60
+
+batch:
+  # Jobs prefilled per batch, each in its own tab. You review and submit each tab yourself.
+  size: 20
+  # Start a batch automatically when the dashboard opens.
+  auto_start: true
+
+blacklist_companies:
+  # Companies never to apply to, e.g. your current employer. Whole words, case-insensitive.
+  []
+
+sources:
+  # Public career-board feeds. The slug is the last part of the company's
+  # careers URL, e.g. boards.greenhouse.io/<slug>, jobs.lever.co/<slug>,
+  # jobs.ashbyhq.com/<slug>.
+  greenhouse:
+    - { slug: gitlab, name: GitLab }
+    - { slug: coinbase, name: Coinbase }
+    - { slug: databricks, name: Databricks }
+    - { slug: stripe, name: Stripe }
+    - { slug: grafanalabs, name: Grafana Labs }
+    - { slug: twilio, name: Twilio }
+    - { slug: okta, name: Okta }
+    - { slug: mongodb, name: MongoDB }
+    - { slug: datadog, name: Datadog }
+    - { slug: highradius, name: HighRadius }
+    - { slug: inmobi, name: InMobi }
+    - { slug: rubrik, name: Rubrik }
+    - { slug: hackerrank, name: HackerRank }
+    - { slug: glance, name: Glance }
+    - { slug: elastic, name: Elastic }
+    - { slug: druva, name: Druva }
+    - { slug: groww, name: Groww }
+    - { slug: turing, name: Turing }
+    - { slug: newrelic, name: New Relic }
+    - { slug: observeai, name: Observe.AI }
+    - { slug: slice, name: slice }
+    - { slug: cloudflare, name: Cloudflare }
+    - { slug: capco, name: Capco }
+    - { slug: akko, name: AKKO }
+    - { slug: coherehealth, name: Cohere Health }
+    - { slug: fivetran, name: Fivetran }
+    - { slug: zinier, name: Zinier }
+    - { slug: emergentlabsinc, name: Emergent Labs }
+    - { slug: skillzinc, name: Skillz }
+    - { slug: openfx, name: OpenFX }
+    - { slug: netskope, name: Netskope }
+    - { slug: devrev, name: DevRev }
+    - { slug: sumologic, name: Sumo Logic }
+    - { slug: aisquared, name: AI Squared }
+    - { slug: zscaler, name: Zscaler }
+    - { slug: zenoti, name: Zenoti }
+    - { slug: neuraflash, name: NeuraFlash }
+    - { slug: harnessinc, name: Harness }
+    - { slug: agoda, name: Agoda }
+    - { slug: zinnia, name: Zinnia }
+    - { slug: commvault, name: Commvault }
+    - { slug: orioninnovationnaukri, name: Orion Innovation }
+    - { slug: vonage, name: Vonage }
+    - { slug: intercom, name: Intercom }
+    - { slug: Ketch, name: Ketch }
+    - { slug: onespan, name: OneSpan }
+    - { slug: zetaglobal, name: Zeta Global }
+    - { slug: scopely, name: Scopely }
+    - { slug: gleanwork, name: Glean }
+    - { slug: map, name: MAP (WPP) }
+    - { slug: zoominfo, name: ZoomInfo }
+    - { slug: particle41llc, name: Particle41 }
+    - { slug: platformscience, name: Platform Science }
+    - { slug: supplyhouse, name: SupplyHouse.com }
+    - { slug: razorpaysoftwareprivatelimited, name: Razorpay }
+    - { slug: sigmoid, name: Sigmoid }
+    - { slug: addepar1, name: Addepar }
+    - { slug: edelmanfinancialenginesllc, name: Edelman Financial Engines }
+    - { slug: headoutcareers, name: Headout }
+    - { slug: cresta, name: Cresta }
+    - { slug: techholding, name: Tech Holding }
+    - { slug: tegnaindia, name: TEGNA India }
+    - { slug: deepintent, name: DeepIntent }
+    - { slug: yugabyte, name: Yugabyte }
+    - { slug: contentstack, name: Contentstack }
+    - { slug: justmarkets, name: JustMarkets }
+    - { slug: thoughtworks, name: Thoughtworks }
+  lever:
+    - { slug: paytm, name: Paytm }
+    - { slug: meesho, name: Meesho }
+    - { slug: hevodata, name: Hevo Data }
+    - { slug: toptal, name: Toptal }
+    - { slug: zeta, name: Zeta }
+    - { slug: mindtickle, name: Mindtickle }
+    - { slug: fampay, name: FamPay }
+    - { slug: pocketfm, name: Pocket FM }
+    - { slug: cred, name: CRED }
+    - { slug: weloglobal, name: Welo Global }
+    - { slug: brillio-2, name: Brillio }
+    - { slug: drivetrain, name: Drivetrain }
+    - { slug: ConverseNow, name: ConverseNow }
+    - { slug: gohighlevel, name: HighLevel }
+    - { slug: weekdayworks, name: Weekday }
+    - { slug: smart-working-solutions, name: Smart Working }
+    - { slug: fi, name: Fi Money }
+    - { slug: jobgether, name: Jobgether }
+    - { slug: veeva, name: Veeva Systems }
+    - { slug: extremenetworks, name: Extreme Networks }
+    - { slug: ttecdigital, name: TTEC Digital }
+    - { slug: Allata, name: Allata }
+    - { slug: jumpcloud, name: JumpCloud }
+    - { slug: levelai, name: Level AI }
+    - { slug: ion, name: ION Group }
+    - { slug: zimperium, name: Zimperium }
+    - { slug: valgenesis, name: ValGenesis }
+    - { slug: doola, name: doola }
+  ashby:
+    - { slug: tekion, name: Tekion }
+    - { slug: sarvam, name: Sarvam AI }
+    - { slug: atlan, name: Atlan }
+    - { slug: ditto, name: Ditto }
+    - { slug: navi, name: Navi }
+    - { slug: ciroos, name: Ciroos }
+    - { slug: cognition, name: Cognition }
+    - { slug: airwallex, name: Airwallex }
+    - { slug: span, name: SPAN }
+    - { slug: signoz, name: SigNoz }
+    - { slug: spotdraft, name: SpotDraft }
+    - { slug: andela, name: Andela }
+    - { slug: smallest, name: Smallest AI }
+    - { slug: absorblms, name: Absorb }
+    - { slug: CUBE, name: CUBE }
+    - { slug: plotlineso, name: Plotline }
+    - { slug: kaigentic, name: kAIgentic }
+    - { slug: pebl, name: Pebl }
+    - { slug: Wisdom-AI, name: Wisdom AI }
+    - { slug: broccoli, name: Broccoli AI }
+
+  # Job-search feeds (keyword based)
+  himalayas:
+    enabled: true
+    queries: [qa engineer, sdet, test automation, quality assurance, software tester]
+  remotive:
+    enabled: true
+    categories: [qa]
+  adzuna:
+    enabled: true   # only runs when ADZUNA_APP_ID / ADZUNA_APP_KEY are set
+    queries: [qa engineer, sdet, automation tester, quality assurance engineer, software tester]

@@ -1,0 +1,73 @@
+# Facts a resume doesn't hold, used to answer screening questions truthfully.
+# Your own copy is config/profile.yaml: it is created from this example on first run,
+# it is git-ignored, and it never leaves your computer. Edit that one, not this file.
+#
+# Anything left blank ("" or null) is never guessed: forms that ask for it wait for you.
+
+# Blank contact fields are filled from your resume (including its links).
+contact:
+  full_name: ""                # e.g. Priya Sharma
+  email: ""
+  phone: ""                    # with country code, e.g. +91-9876543210
+  linkedin: ""
+  github: ""
+  current_city: ""             # e.g. Bengaluru
+
+preferences:
+  locations: [India, Remote]
+  willing_to_relocate: null    # true / false
+  workplace: [onsite, hybrid, remote]
+  office_ok: null              # "Are you comfortable working from the office?" true / false
+  shifts_ok: null              # "Are you open to rotational / night shifts?" true / false
+
+compensation:
+  expected_ctc_inr: null       # yearly, in rupees, e.g. 1200000
+  expected_negotiable: null    # true / false
+  current_ctc_inr: null        # yearly fixed + variable, e.g. 800000
+
+notice_period_days: null       # e.g. 30, 60, 90
+serving_notice: null           # true / false
+offer_in_hand: null            # true / false
+
+work_authorization: ""         # e.g. Indian citizen, authorised to work in India; no visa sponsorship required
+requires_sponsorship: null     # true / false
+
+education:
+  degree: ""                   # e.g. Bachelor of Technology (B.Tech), Computer Science
+  institution: ""
+  graduation_year: null        # e.g. 2023
+  cgpa: ""                     # e.g. "8.1/10"
+  class_10_percent: ""         # e.g. "90%"
+  class_12_percent: ""
+  gap: ""                      # e.g. "No" or a one-line explanation of a gap
+
+languages: []                  # e.g. [English, Hindi]
+address: ""                    # only if you want mailing-address questions filled
+family_at_company: null        # "Do any family members work here?" false = answer No everywhere
+
+# Skills you really have that your resume doesn't list yet. They count as yours when
+# scoring jobs and answering "Do you have experience with X?".
+extra_skills: []               # e.g. [Cypress, GitHub Actions, Linux]
+
+# Override the years computed from your resume's dates (leave null to compute).
+years_experience_override: null
+
+# Self-identification. gender/disability are answered as given; other questions
+# (ethnicity, veteran status, ...) follow self_identification:
+# "decline" picks "Prefer not to say" when the form offers it; "ask" leaves them for you.
+gender: null                   # e.g. Male / Female / Prefer not to say
+disability: null               # e.g. "No"
+self_identification: decline
+
+# "How did you hear about this role?" - the first of these the form offers is picked.
+heard_about: [LinkedIn, Job portal, Company website, Careers page]
+
+# Standard written answers, reused on every form that asks.
+standard_answers:
+  why_change: null             # "Why are you looking for a change?"
+  about_me: null               # "Tell us about yourself" (2-3 sentences)
+  service_bond: null           # null = ask me each time
+
+# Answers to other screening questions. The dashboard adds to this list when you tick
+# "remember" on an answer, so each question is asked only once.
+saved_answers: []
