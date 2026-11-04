@@ -51,6 +51,9 @@ const SearchSchema = z.object({
     .object({
       size: z.number().int().min(1).max(50).default(20),
       auto_start: z.boolean().default(true),
+      // Near misses on fully fillable sites (Greenhouse/Lever/Ashby) join batches after ready jobs.
+      include_near_misses: z.boolean().default(true),
+      near_miss_min_score: z.number().min(0).max(100).default(65),
     })
     .prefault({}),
   blacklist_companies: z.array(z.string()).default([]),
@@ -59,6 +62,7 @@ const SearchSchema = z.object({
       greenhouse: z.array(company).default([]),
       lever: z.array(company).default([]),
       ashby: z.array(company).default([]),
+      smartrecruiters: z.array(company).default([]),
       himalayas: z.object({ enabled: z.boolean().default(true), queries: z.array(z.string()).default([]) }).prefault({}),
       remotive: z.object({ enabled: z.boolean().default(true), categories: z.array(z.string()).default(['qa']) }).prefault({}),
       adzuna: z.object({ enabled: z.boolean().default(true), queries: z.array(z.string()).default([]) }).prefault({}),
@@ -150,6 +154,54 @@ function loadYaml<T>(file: string, schema: z.ZodType<T>): T {
     throw new Error(`Invalid config/${file}:\n${z.prettifyError(result.error)}`);
   }
   return result.data;
+}
+
+/**
+ * Brings your own config/search.yaml up to date with search.example.yaml after an update:
+ * adds companies (by slug) and settings that are new in the example. Your own values, comments
+ * and additions are kept. To stop a company coming back, add it to blacklist_companies.
+ */
+export function syncSearchConfig(dir = paths.config): { companies: string[]; settings: string[] } {
+  const own = ensureConfigFile('search.yaml', dir);
+  const examplePath = path.join(dir, 'search.example.yaml');
+  const added = { companies: [] as string[], settings: [] as string[] };
+  if (!existsSync(examplePath)) return added;
+  const doc = parseDocument(readFileSync(own, 'utf8'));
+  const example = parseYaml(readFileSync(examplePath, 'utf8')) as Record<string, unknown>;
+
+  // New settings inside filters / scoring / batch (never overwrites a value you set).
+  for (const section of ['filters', 'scoring', 'batch']) {
+    const values = example[section] as Record<string, unknown> | undefined;
+    for (const [key, value] of Object.entries(values ?? {})) {
+      if (!doc.hasIn([section, key])) {
+        doc.setIn([section, key], value);
+        added.settings.push(`${section}.${key}`);
+      }
+    }
+  }
+  // New company boards.
+  const sources = (example.sources ?? {}) as Record<string, unknown>;
+  for (const [source, list] of Object.entries(sources)) {
+    if (!Array.isArray(list)) {
+      if (!doc.hasIn(['sources', source])) {
+        doc.setIn(['sources', source], list);
+        added.settings.push(`sources.${source}`);
+      }
+      continue;
+    }
+    if (!doc.hasIn(['sources', source])) doc.setIn(['sources', source], doc.createNode([]));
+    const seq = doc.getIn(['sources', source]) as YAMLSeq;
+    const have = new Set(seq.items.map((i) => (isMap(i) ? String(i.get('slug')).toLowerCase() : '')));
+    for (const c of list as { slug: string; name: string }[]) {
+      if (have.has(c.slug.toLowerCase())) continue;
+      const node = doc.createNode({ slug: c.slug, name: c.name });
+      node.flow = true;
+      seq.add(node);
+      added.companies.push(`${source}/${c.slug}`);
+    }
+  }
+  if (added.companies.length || added.settings.length) writeFileSync(own, doc.toString());
+  return added;
 }
 
 export const parseSearchConfig = (raw: unknown) => SearchSchema.parse(raw ?? {});

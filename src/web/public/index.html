@@ -47,10 +47,10 @@
     <div id="view-batch" class="view page hidden">
       <div class="page-head">
         <div>
-          <h2>Prefilled tabs</h2>
-          <div class="muted" id="batchSummary">No batch yet.</div>
+          <h2>Batches</h2>
+          <div class="muted" id="batchSummary">Loading…</div>
         </div>
-        <button class="btn primary" id="batchBtn" type="button">Prepare next 20</button>
+        <button class="btn primary" id="batchStartNext" type="button">Start next batch</button>
       </div>
       <div class="card hidden" id="confirmCard">
         <h3>Did you apply?</h3>
@@ -59,11 +59,13 @@
       </div>
       <div class="card">
         <p class="muted small" style="margin-top:0">
-          Each job is open in its own tab in the assistant Chrome window, filled as far as the facts allow. Check the tab, answer anything
-          left (highlighted below), and press the site's own Submit button. Submissions are detected and recorded automatically.
+          Every fetch sorts new matching jobs into batches of 20, best first. Press <strong>Start</strong> on a batch: its jobs open in the
+          assistant Chrome window, each filled as far as your facts allow. Check each tab, answer anything left, and press the site's own
+          Submit button. Submissions are detected and recorded automatically.
         </p>
-        <div id="batchTable"></div>
+        <div id="batchList"></div>
       </div>
+      <div class="card" id="batchDetail"></div>
     </div>
 
     <!-- Tracker -->
@@ -108,6 +110,7 @@
     </dialog>
 
     <dialog id="appDialog"><div id="appDialogBody"></div></dialog>
+    <dialog id="dayDialog"><div id="dayDialogBody"></div></dialog>
 
     <dialog id="addDialog">
       <form id="addForm" method="dialog">

@@ -64,13 +64,35 @@ It should print `v22.13.0` or higher.
 ```bash
 git clone https://github.com/tejash-veer46/JobSearchAITool.git
 cd JobSearchAITool
-npm install
 ```
 
-No Git? On the GitHub page, click **Code**, then **Download ZIP**. Unzip it, open a terminal in that folder, and
-run `npm install`.
+Then run the setup script:
 
-`npm install` takes a minute. It doesn't download a browser; the tool uses the Chrome you already have.
+- **Windows:** double-click `setup.bat`, or run `.\setup.bat` in PowerShell.
+- **macOS / Linux:** `./setup.sh`
+
+It checks Git and Node are installed, installs the dependencies, and checks that the tool starts. It takes about
+a minute. It doesn't download a browser; the tool uses the Chrome you already have.
+
+Use **Git** rather than **Download ZIP**: the setup script needs a git clone to update itself.
+
+### Updating to the latest version
+
+Run the same script again: `setup.bat` on Windows, `./setup.sh` on macOS/Linux. Close the dashboard first. The
+script:
+
+1. **Gets the latest code** from GitHub.
+2. **Installs** any new dependencies.
+3. **Adds new companies and settings** to your own `config/search.yaml`. Your own values and edits are kept.
+
+**Your personal files are never touched:** your resume, `config/profile.yaml`, `config/search.yaml`, the
+`data/` folder (jobs, applications, calendar), `reports/` and `.env`.
+
+If you edited any of the tool's own files, the script saves those changes aside first (with `git stash`), so the
+update can't fail. Bring them back with `git stash pop`.
+
+**Maintainers:** push your changes to the `main` branch on GitHub. Everyone else runs the setup script to get
+them.
 
 ## 3. Add your resume
 
@@ -139,8 +161,10 @@ scoring:
   qualify_threshold: 75     # score needed to be "ready to apply"
 
 batch:
-  size: 20                  # tabs prefilled per batch
-  auto_start: true          # prefill a batch when the dashboard opens
+  size: 20                  # jobs per batch
+  auto_start: false         # true = start the oldest unfinished batch when the dashboard opens
+  include_near_misses: true # also batch near misses on fully fillable sites (marked "stretch")
+  near_miss_min_score: 65   # lowest score a near miss needs to join a batch
 
 blacklist_companies:        # never apply here, e.g. your current employer
   - Your Current Company
@@ -156,6 +180,7 @@ careers page and look at the address:
 | `boards.greenhouse.io/acme` or `job-boards.greenhouse.io/acme` | `greenhouse:` | `acme` |
 | `jobs.lever.co/acme` | `lever:` | `acme` |
 | `jobs.ashbyhq.com/acme` | `ashby:` | `acme` |
+| `jobs.smartrecruiters.com/Acme/...` | `smartrecruiters:` | `Acme` (case matters; only India postings are read) |
 
 ```yaml
   greenhouse:
@@ -202,7 +227,26 @@ Three windows appear:
 
 ### Batch view: apply
 
-1. Wait until the summary stops saying "Filling tabs…" (about a minute).
+**Every fetch sorts new matching jobs into numbered batches of 20.** That covers the morning run, **Fetch new
+jobs**, and `npm run cli -- run`. Batches are ordered so the most useful jobs come first: fully fillable sites,
+then the highest scores.
+
+The Batch view lists every batch with:
+
+- how many jobs it can **prefill**
+- how many you **open yourself**
+- how many you've **applied** to
+- its status: New, In progress or Done
+
+Click a batch to see its jobs, then press **Start** (or **Start next batch** at the top).
+
+Jobs marked **stretch** are near misses: they scored just below the bar, usually because they ask for a bit more
+experience. They're included to give you more prefilled jobs. Set `batch.include_near_misses: false` in
+`search.yaml` for ready jobs only.
+
+Once a batch is started:
+
+1. Wait until it stops saying "Filling tabs…" (about a minute).
 2. For each job:
    - Click **Go to tab** and check the form.
    - Fill anything listed under "Still needs".
@@ -216,8 +260,8 @@ Three windows appear:
    **Open N in my browser** to open them in your normal browser and apply there.
 5. **Did you apply?** For jobs you opened yourself, or tabs closed before a submission was detected, one click
    records each: *Yes, I applied*, *No, keep for later* or *Not interested*.
-6. Click **Prepare next 20** for more. A job you've applied to, skipped or still have open is never picked twice.
-   If nothing can be prefilled, the page says so and explains why.
+6. Start another batch whenever you like. Each job belongs to exactly one batch, so nothing is ever filled twice.
+   Jobs you answered *No, keep for later* can be prefilled again when you restart their batch.
 
 ### Tracker view: follow up
 
@@ -280,11 +324,12 @@ Run each as `npm run cli -- <command>`.
 | `score --rescore` | Re-score every job (e.g. after editing `extra_skills` or adding an API key). |
 | `refilter` | Re-apply `search.yaml` filters to jobs already stored. |
 | `report` | Rebuild the report. |
+| `sync-config` | Add new companies and settings from `search.example.yaml` to your `search.yaml` (the setup script runs this). |
 
 ## 10. How jobs are picked and scored
 
 1. **Fetch** from these sources:
-   - Greenhouse, Lever and Ashby company boards (their official public feeds)
+   - Greenhouse, Lever, Ashby and SmartRecruiters company boards (their official public feeds)
    - Himalayas and Remotive (remote jobs)
    - Adzuna (India-wide listings, optional free key)
 2. **Remove duplicates** by source ID, URL, and company + title + city.
@@ -334,6 +379,7 @@ Tick **remember** next to an answer in the dashboard, and it's saved to `profile
 | **Greenhouse** | Fully prefilled. |
 | **Lever** | Fully prefilled. Lever's submit button uses hCaptcha, which can be stubborn in an automated browser. If it won't go through, finish that one in your normal browser. |
 | **Ashby** | Prefilled (the form loads a moment after the page). |
+| **SmartRecruiters** | Best effort: the assistant opens the job, clicks Apply or "I'm interested", and fills the form it reaches. |
 | **Company sites via Adzuna** | Best effort: the assistant follows the "Apply" link and fills what it recognises. |
 | **Himalayas, Remotive** | Opened in your normal browser (they block automated browsers). |
 | **Workday and similar** | Need an account per company; apply yourself. |
@@ -348,7 +394,10 @@ The tool never tries to get around CAPTCHAs or bot protection, and it **never su
 | `start-dashboard.cmd is not recognized` (PowerShell) | Type `.\start-dashboard.cmd` (PowerShell needs the `.\`), or double-click the file. |
 | "The assistant browser is already open in another JobApplyAI window" | A previous dashboard is still running. Close its console window. |
 | `Browser "chrome" not found` | Install Chrome, or put `BROWSER_CHANNEL=msedge` in `.env` to use Microsoft Edge. |
-| Batch says "No jobs left that can be prefilled" | Answer "Did you apply?" items (*No, keep for later* re-queues them), move near misses to ready, add companies, or wait for tomorrow's fetch. |
+| A batch says "No prefillable jobs" / every batch is Done | Answer "Did you apply?" items (*No, keep for later* re-queues them), move near misses to ready, add companies, or wait for tomorrow's fetch. |
+| A fetch finds new jobs but **all of them are filtered out** | The fetch log ends with a line like `Filtered out because of: title 50, experience 8, ...`. **title**: not a QA/testing role. **seniority**: a senior/lead title. **experience**: asks for more than `filters.max_required_years`. **location**: outside India. Adjust `config/search.yaml` (for example raise `max_required_years` to your years + 1), then run `npm run cli -- refilter`. |
+| A board shows `FAILED - The operation was aborted due to timeout` | That company's board was slow; it's retried on the next fetch. Other boards are unaffected. |
+| `setup.bat` says the dashboard is running | Close the dashboard's console window, then run setup again. |
 | A tab says "No application form on this page" | Click the page's Apply button in that tab, then **Rescan page** in the dashboard. |
 | A field was filled wrongly | Fix it in the tab before submitting. To see what a form will get, run `npm run cli -- preview <id>`. |
 | Years of experience wrong | Set `years_experience_override` in `profile.yaml`, then run `npm run cli -- profile --refresh`. |

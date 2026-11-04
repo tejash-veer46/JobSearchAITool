@@ -26,6 +26,9 @@ describe('title relevance', () => {
     ['Supplier Quality Engineer', 'different field'],
     ['Quality Assurance Rater - Indonesian', 'different field'],
     ['Territory Account Executive, Qatar', 'not a QA'],
+    ['HiL Test Engineer', 'different field'],
+    ['Test Engineer -MBD/MiL/SiL', 'different field'],
+    ['Embedded Firmware Test Engineer', 'different field'],
   ])('drops "%s"', (title, why) => expect(isRelevantTitle(title, cfg)).toContain(why));
 
   it('drops manual roles when include_manual_qa is off', () => {
@@ -123,6 +126,7 @@ describe('filterJob', () => {
   it('keeps old listings on company boards but drops them from aggregators', () => {
     const old = new Date(Date.now() - 100 * 86_400_000).toISOString();
     expect(filterJob(job({ postedAt: old }), cfg).ok).toBe(true);
+    expect(filterJob(job({ platform: 'smartrecruiters', postedAt: old }), cfg).ok).toBe(true);
     expect(filterJob(job({ platform: 'himalayas', postedAt: old }), cfg)).toMatchObject({ ok: false });
   });
 

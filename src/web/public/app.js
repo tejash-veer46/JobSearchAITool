@@ -346,6 +346,9 @@ async function runFetch() {
       clearInterval(timer);
       $('#runBtn').disabled = false;
       await refreshAll(false);
+      // New jobs are sorted into batches as part of the fetch.
+      if (currentView === 'batch') await loadBatch();
+      else await refreshBadge();
     }
   }, 1000);
 }
@@ -417,6 +420,7 @@ $('#views').addEventListener('click', (e) => {
 // ---------------------------------------------------------------- batch view
 
 const BATCH_LABEL = {
+  not_started: 'Not started',
   queued: 'Queued',
   starting: 'Opening',
   filling: 'Filling',
@@ -429,62 +433,98 @@ const BATCH_LABEL = {
   closed: 'Closed',
   manual: 'Open yourself',
   opened: 'Opened in your browser',
+  awaiting: 'Did you apply?',
+  skipped: 'Not interested',
 };
+const LIVE = ['ready', 'needs_input', 'captcha'];
+const STATE_CLASS = { not_started: 'closed', awaiting: 'needs_input', manual: 'needs_input', opened: 'closed', skipped: 'closed' };
 
-function noFillableNote(pending) {
-  return `<div class="banner" style="border-radius:8px;border:0">
-    <strong>No jobs left that can be prefilled right now.</strong> Every ready job on a fillable site is either applied or waiting for your
-    answer under "Did you apply?"${pending ? ` (${pending} waiting: answer "No, keep for later" to put one back in the queue)` : ''}.
-    New jobs arrive with each morning's fetch, or press <em>Fetch new jobs</em>. Near misses you want anyway can be moved to Ready from the Jobs view.
-  </div>`;
+const batchUi = { selected: null, list: [] };
+
+function batchName(b) {
+  return `Batch ${b.id}`;
 }
 
-let confirmCount = 0;
-async function loadBatch() {
-  const [batch, confirms] = await Promise.all([api('/api/batch'), api('/api/confirmations')]);
-  confirmCount = confirms.filter((j) => !['himalayas', 'remotive'].includes(j.platform)).length;
-  renderConfirmations(confirms);
-  const items = batch?.items ?? [];
-  const count = (st) => items.filter((i) => i.state === st).length;
-  const open = items.filter((i) => ['ready', 'needs_input', 'captcha'].includes(i.state)).length;
-  $('#batchCount').textContent = open ? String(open) : '';
-  $('#batchBtn').disabled = Boolean(batch?.filling);
-  if (!batch || !items.length) {
-    $('#batchSummary').textContent = batch ? 'No ready jobs left to prefill. Fetch new jobs or move near misses to ready.' : 'No batch yet. Press "Prepare next 20".';
-    $('#batchTable').innerHTML = '';
+function renderBatchList(list) {
+  const active = list.find((b) => b.active);
+  const pending = list.filter((b) => !b.done);
+  $('#batchCount').textContent = pending.length ? String(pending.length) : '';
+  $('#batchSummary').textContent = list.length
+    ? `${list.length} batch(es) · ${pending.length} with jobs left${active ? ` · ${batchName(active)} ${active.filling ? 'is filling tabs…' : 'is open in the assistant window'}` : ''}`
+    : 'No batches yet. Press "Fetch new jobs": new matching jobs are sorted into batches of 20.';
+  $('#batchStartNext').disabled = !pending.length || Boolean(active?.filling);
+  if (!list.length) {
+    $('#batchList').innerHTML = '';
+    return;
+  }
+  $('#batchList').innerHTML = `<table class="grid"><thead><tr><th>Batch</th><th>Jobs</th><th>To prefill</th><th>Open yourself</th><th>Applied</th><th>Status</th><th></th></tr></thead><tbody>${list
+    .map((b) => {
+      const status = b.filling ? 'Filling tabs…' : b.active ? 'In progress' : b.done ? 'Done' : b.startedAt ? 'Started' : 'New';
+      const cls = b.filling || b.active ? 'needs_input' : b.done ? 'submitted' : 'closed';
+      return `<tr class="clickable ${batchUi.selected === b.id ? 'selected-row' : ''}" data-batch-select="${b.id}">
+        <td><strong>${batchName(b)}</strong><div class="note">created ${day(b.createdAt)}${b.stretch ? ` · ${b.stretch} stretch` : ''}</div></td>
+        <td>${b.total}</td><td>${b.toPrefill}</td><td>${b.toOpen}</td><td>${b.applied}</td>
+        <td><span class="state ${cls}">${status}</span>${b.awaiting ? `<div class="note">${b.awaiting} awaiting your answer</div>` : ''}</td>
+        <td><div class="row" style="justify-content:flex-end">${!b.done && !b.filling && !(b.active && b.inTabs) ? `<button class="btn primary" data-batch-start="${b.id}">Start</button>` : ''}</div></td>
+      </tr>`;
+    })
+    .join('')}</tbody></table>`;
+}
+
+function renderBatchDetail(batch, items) {
+  if (!batch) {
+    $('#batchDetail').innerHTML = '<div class="muted small">Pick a batch above to see its jobs.</div>';
     return;
   }
   const auto = items.filter((i) => !['manual', 'opened'].includes(i.state) || i.jobStatus === 'APPLIED');
   const manual = items.filter((i) => i.state === 'manual');
   const opened = items.filter((i) => i.state === 'opened');
-  const done = auto.filter((i) => !['queued', 'starting', 'filling'].includes(i.state)).length;
-  $('#batchSummary').textContent = batch.filling
-    ? `Filling tabs: ${done} of ${auto.length} done…`
-    : `${count('ready')} ready to submit · ${count('needs_input') + count('captcha')} need you · ${count('submitted')} applied · ${count('failed')} couldn't open` +
-      (manual.length + opened.length ? ` · ${manual.length + opened.length} to open yourself` : '');
+  const count = (st) => items.filter((i) => i.state === st).length;
+  const head = `<div class="page-head" style="margin-bottom:8px"><div><h3 style="margin:0">${batchName(batch)}</h3>
+      <div class="note">${count('ready')} ready to submit · ${count('needs_input') + count('captcha')} need you · ${count('submitted')} applied · ${count('failed')} couldn't open${manual.length + opened.length ? ` · ${manual.length + opened.length} to open yourself` : ''}</div></div>
+      ${!batch.done && !batch.filling && !(batch.active && batch.inTabs) ? `<button class="btn primary" data-batch-start="${batch.id}">${batch.startedAt ? 'Continue this batch' : 'Start this batch'}</button>` : ''}</div>`;
+  const rows = auto
+    .map(
+      (i) => `<tr>
+        <td><strong>${esc(i.company)}</strong>${i.stretch ? ' <span class="chip" title="Scored just below the bar; usually asks a bit more experience">stretch</span>' : ''}<div class="note">${esc(i.title)} · ${esc(i.platform)}${i.score != null ? ` · ${i.score}` : ''}</div></td>
+        <td><span class="state ${STATE_CLASS[i.state] ?? i.state}">${esc(BATCH_LABEL[i.state] ?? i.state)}</span></td>
+        <td class="note">${i.total ? `${i.filled}/${i.total}` : '–'}</td>
+        <td class="note">${i.missing.length ? esc(i.missing.slice(0, 3).join('; ')) + (i.missing.length > 3 ? ` +${i.missing.length - 3}` : '') : i.state === 'needs_input' || i.state === 'failed' ? esc(i.message) : ''}</td>
+        <td><div class="row" style="justify-content:flex-end">
+          ${LIVE.includes(i.state) ? `<button class="btn" data-batch="focus" data-id="${i.id}">Go to tab</button><button class="btn ghost" data-batch="done" data-id="${i.id}">Applied</button><button class="btn ghost" data-batch="skip" data-id="${i.id}">Skip</button>` : ''}
+          <button class="btn ghost" data-batch="open" data-id="${i.id}">Details</button>
+        </div></td>
+      </tr>`,
+    )
+    .join('');
   const manualCard = manual.length || opened.length
     ? `<div class="card" style="margin-top:12px;background:var(--bg)"><div class="page-head"><div><strong>Open these yourself (${manual.length + opened.length})</strong>
-        <div class="note">Job feeds like Himalayas block automated browsers, so these can't be prefilled. They open in your normal browser; afterwards answer "Did you apply?" above.</div></div>
-        ${manual.length ? `<button class="btn primary" data-batch="open-manual">Open ${manual.length} in my browser</button>` : ''}</div>
+        <div class="note">Job feeds like Himalayas block automated browsers, so these can't be prefilled. They open in your normal browser; afterwards answer "Did you apply?".</div></div>
+        ${manual.length ? `<button class="btn primary" data-batch-manual="${batch.id}">Open ${manual.length} in my browser</button>` : ''}</div>
         <table class="grid" style="margin-top:8px"><tbody>${[...manual, ...opened]
           .map((i) => `<tr><td><strong>${esc(i.company)}</strong><div class="note">${esc(i.title)} · ${esc(i.platform)}</div></td><td><span class="state ${i.state === 'opened' ? 'closed' : 'needs_input'}">${esc(BATCH_LABEL[i.state])}</span></td>
             <td><div class="row" style="justify-content:flex-end"><a class="btn ghost" href="${esc(i.url)}" target="_blank" rel="noopener">Open ↗</a></div></td></tr>`)
           .join('')}</tbody></table></div>`
     : '';
-  $('#batchTable').innerHTML = (auto.length ? `<table class="grid"><thead><tr><th>Job</th><th>Status</th><th>Filled</th><th>Still needs</th><th></th></tr></thead><tbody>${auto
-    .map(
-      (i) => `<tr>
-        <td><strong>${esc(i.company)}</strong><div class="note">${esc(i.title)} · ${esc(i.platform)}</div></td>
-        <td><span class="state ${i.state}">${esc(BATCH_LABEL[i.state] ?? i.state)}</span></td>
-        <td class="note">${i.total ? `${i.filled}/${i.total}` : '–'}</td>
-        <td class="note">${i.missing.length ? esc(i.missing.slice(0, 3).join('; ')) + (i.missing.length > 3 ? ` +${i.missing.length - 3}` : '') : i.state === 'needs_input' ? esc(i.message) : ''}</td>
-        <td><div class="row" style="justify-content:flex-end">
-          ${['ready', 'needs_input', 'captcha'].includes(i.state) ? `<button class="btn" data-batch="focus" data-id="${i.id}">Go to tab</button><button class="btn ghost" data-batch="done" data-id="${i.id}">Applied</button><button class="btn ghost" data-batch="skip" data-id="${i.id}">Skip</button>` : ''}
-          <button class="btn ghost" data-batch="open" data-id="${i.id}">Details</button>
-        </div></td>
-      </tr>`,
-    )
-    .join('')}</tbody></table>` : noFillableNote(confirmCount)) + manualCard;
+  $('#batchDetail').innerHTML =
+    head +
+    (auto.length ? `<table class="grid"><thead><tr><th>Job</th><th>Status</th><th>Filled</th><th>Still needs</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="muted small">No prefillable jobs in this batch.</div>') +
+    manualCard;
+}
+
+async function loadBatch() {
+  const [list, confirms] = await Promise.all([api('/api/batches'), api('/api/confirmations')]);
+  batchUi.list = list;
+  renderConfirmations(confirms);
+  if (!list.some((b) => b.id === batchUi.selected)) {
+    batchUi.selected = (list.find((b) => b.active) ?? [...list].reverse().find((b) => !b.done) ?? list[0])?.id ?? null;
+  }
+  renderBatchList(list);
+  const batch = list.find((b) => b.id === batchUi.selected);
+  if (!batch) return renderBatchDetail(null, []);
+  // The batch being worked on shows live tab states; others show what has happened so far.
+  const items = batch.active ? (await api('/api/batch'))?.items ?? [] : (await api(`/api/batches/${batch.id}`)).items;
+  renderBatchDetail(batch, items);
 }
 
 function renderConfirmations(list) {
@@ -499,15 +539,37 @@ function renderConfirmations(list) {
     .join('');
 }
 
+async function startBatch(id) {
+  try {
+    const b = await api(id ? `/api/batches/${id}/start` : '/api/batch', { method: 'POST', body: {} });
+    if (b?.batchId) batchUi.selected = b.batchId;
+    const prefill = (b?.items ?? []).filter((i) => !['manual', 'opened', 'submitted', 'skipped', 'awaiting', 'not_started'].includes(i.state)).length;
+    toast(b?.batchId ? (prefill || b.filling ? `Batch ${b.batchId}: opening and filling tabs in the assistant Chrome window…` : `Batch ${b.batchId} has no jobs left to prefill; open the rest yourself below.`) : 'No batch has jobs left. Press "Fetch new jobs" for more.');
+    await loadBatch();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
 $('#view-batch').addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-batch], [data-confirm]');
+  const start = e.target.closest('[data-batch-start]');
+  if (start) {
+    e.stopPropagation();
+    return void startBatch(Number(start.dataset.batchStart));
+  }
+  const select = e.target.closest('[data-batch-select]');
+  if (select && !e.target.closest('button')) {
+    batchUi.selected = Number(select.dataset.batchSelect);
+    return void loadBatch();
+  }
+  const b = e.target.closest('[data-batch], [data-confirm], [data-batch-manual]');
   if (!b) return;
   const id = b.dataset.id;
   try {
     if (b.dataset.confirm) {
       await api(`/api/jobs/${id}/confirm`, { method: 'POST', body: { answer: b.dataset.confirm } });
-    } else if (b.dataset.batch === 'open-manual') {
-      const r = await api('/api/batch/open-manual', { method: 'POST' });
+    } else if (b.dataset.batchManual) {
+      const r = await api(`/api/batches/${b.dataset.batchManual}/open-manual`, { method: 'POST' });
       toast(`Opened ${r.opened} job(s) in your browser`);
     } else if (b.dataset.batch === 'focus') {
       await api(`/api/jobs/${id}/apply/focus`, { method: 'POST' });
@@ -529,20 +591,7 @@ $('#view-batch').addEventListener('click', async (e) => {
   }
 });
 
-$('#batchBtn').addEventListener('click', async () => {
-  try {
-    const b = await api('/api/batch', { method: 'POST', body: {} });
-    const fillable = (b?.items ?? []).filter((i) => !['manual', 'opened'].includes(i.state)).length;
-    toast(
-      fillable
-        ? `Opening and filling ${fillable} tab(s) in the assistant Chrome window…`
-        : 'No jobs left that can be prefilled right now. See the note at the top of this page.',
-    );
-    await loadBatch();
-  } catch (err) {
-    toast(err.message);
-  }
-});
+$('#batchStartNext').addEventListener('click', () => void startBatch(null));
 
 // ---------------------------------------------------------------- tracker view
 
@@ -595,9 +644,27 @@ async function renderCalendar() {
     const evs = byDay.get(k) ?? [];
     html += `<div class="day ${d.getMonth() !== m.getMonth() ? 'other' : ''} ${k === today ? 'today' : ''}"><span class="n">${d.getDate()}</span>
       ${evs.slice(0, 3).map((e) => `<button class="ev" style="--c:${COLORS[e.type] ?? '#adb5bd'}" data-app="${e.job_id}" title="${esc(`${LABEL(e.type)}: ${e.company} - ${e.title}${e.note ? `\n${e.note}` : ''}`)}">${esc(e.company)}</button>`).join('')}
-      ${evs.length > 3 ? `<span class="more">+${evs.length - 3} more</span>` : ''}</div>`;
+      ${evs.length > 3 ? `<button class="more" type="button" data-day="${k}">+${evs.length - 3} more</button>` : ''}</div>`;
   }
+  tracker.byDay = byDay;
   $('#calendar').innerHTML = html;
+}
+
+/** Every event on one calendar day, for days with more than fit in the cell. */
+function openDay(key) {
+  const evs = tracker.byDay?.get(key) ?? [];
+  const [y, mo, d] = key.split('-').map(Number);
+  $('#dayDialogBody').innerHTML = `
+    <div class="dialog-head"><strong>${new Date(y, mo - 1, d).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })} · ${evs.length} event(s)</strong>
+      <button class="btn ghost" type="button" data-day-close>Close</button></div>
+    ${evs
+      .map(
+        (e) => `<div class="confirm-row" style="cursor:pointer" data-app="${e.job_id}"><div><span class="stage-chip" style="--c:${COLORS[e.type] ?? '#adb5bd'}">${LABEL(e.type)}</span>
+          <strong>${esc(e.company)}</strong> <span class="muted">${esc(e.title)}</span>
+          <div class="note">${new Date(e.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}${e.note ? ` · ${esc(e.note)}` : ''}</div></div></div>`,
+      )
+      .join('')}`;
+  $('#dayDialog').showModal();
 }
 
 function renderUpcoming() {
@@ -696,8 +763,17 @@ $('#appDialog').addEventListener('change', async (e) => {
 });
 
 $('#view-tracker').addEventListener('click', (e) => {
+  const day = e.target.closest('[data-day]');
+  if (day) return openDay(day.dataset.day);
   const t = e.target.closest('[data-app]');
   if (t) openApp(Number(t.dataset.app));
+});
+$('#dayDialog').addEventListener('click', (e) => {
+  if (e.target.closest('[data-day-close]')) return $('#dayDialog').close();
+  const t = e.target.closest('[data-app]');
+  if (!t) return;
+  $('#dayDialog').close();
+  openApp(Number(t.dataset.app));
 });
 $('#stageFilter').addEventListener('change', (e) => {
   tracker.filter = e.target.value;
@@ -739,10 +815,13 @@ $('#addForm').addEventListener('submit', async (e) => {
 
 await refreshAll(false);
 if (state.jobs[0]) await selectJob(state.jobs[0].id);
-// The batch badge stays current on every view.
-setInterval(async () => {
-  if (currentView === 'batch') return;
-  const b = await api('/api/batch').catch(() => null);
-  const open = (b?.items ?? []).filter((i) => ['ready', 'needs_input', 'captcha'].includes(i.state)).length;
-  $('#batchCount').textContent = open ? String(open) : '';
-}, 4000);
+// The badge on "Batch" shows how many batches still have jobs left.
+async function refreshBadge() {
+  const list = await api('/api/batches').catch(() => null);
+  const pending = (list ?? []).filter((b) => !b.done).length;
+  $('#batchCount').textContent = pending ? String(pending) : '';
+}
+void refreshBadge();
+setInterval(() => {
+  if (currentView !== 'batch') void refreshBadge();
+}, 10_000);

@@ -11,12 +11,12 @@ const QA_TITLE =
   /\b(qa|q\.a\.|sdet|quality assurance|quality engineer(ing)?|quality analyst|test(ing|er|ers)?|automation engineer|engineer in test|qe)\b/i;
 const MANUAL_TITLE = /\bmanual\b/i;
 const SENIOR_TITLE =
-  /\b(senior|snr|sr\.?|lead|staff|principal|manager|mgr|head|director|architect|vp|vice president|chief|distinguished|fellow)\b/i;
+  /\b(senior|snr|sr\.?|lead|staff|principal|manager|mgr|head|director|architect|vp|vice president|chief|distinguished|fellow|expert)\b/i;
 const HIGH_LEVEL = /\b(iii|iv|v)\b|\b(engineer|sdet|qa|analyst|tester|developer)[\s-]*[3-9]\b|\bl[5-9]\b/i;
 const JUNIOR_ONLY = /\b(intern|internship|apprentice|trainee)\b/i;
 // "Quality" and "test" titles from other industries.
 const OTHER_DOMAIN =
-  /\b(hardware|silicon|post-silicon|pre-silicon|asic|soc|vlsi|fpga|dft|rf|analog|mechanical|manufacturing|clinical|laboratory|lab|medical device|pharma|food|civil|electrical|quality control|qc inspector|supplier quality|quality inspector|customer quality|process quality|data quality|call quality|quality auditor|sales|marketing|content|teacher|tutor|driver|psychometric|exam|a\/b testing|rater|annotator|linguist|translator)\b/i;
+  /\b(hardware|silicon|post-silicon|pre-silicon|asic|soc|vlsi|fpga|dft|rf|analog|mechanical|manufacturing|clinical|laboratory|lab|medical device|pharma|food|civil|electrical|quality control|qc inspector|supplier quality|quality inspector|customer quality|process quality|data quality|call quality|quality auditor|sales|marketing|content|teacher|tutor|driver|psychometric|exam|a\/b testing|rater|annotator|linguist|translator|hil|sil|mil|hardware-in-the-loop|mbd|adas|avionics|embedded|ecu|autosar|firmware)\b/i;
 
 const INDIA =
   /\b(india|bengaluru|bangalore|hyderabad|secunderabad|pune|mumbai|navi mumbai|thane|gurgaon|gurugram|noida|delhi|new delhi|ncr|chennai|kolkata|ahmedabad|jaipur|kochi|cochin|trivandrum|thiruvananthapuram|coimbatore|indore|chandigarh|mohali|nagpur|vadodara|bhubaneswar|mysore|mysuru|visakhapatnam|vizag|lucknow|goa|karnataka|telangana|maharashtra|tamil nadu|haryana|kerala|gujarat|west bengal|uttar pradesh|rajasthan)\b/i;
@@ -113,7 +113,7 @@ export function staleProblem(postedAt: string | null | undefined, maxAgeDays: nu
 }
 
 // Company career boards drop closed jobs, so an old posting date there still means "open".
-const LIVE_BOARDS = new Set(['greenhouse', 'lever', 'ashby']);
+const LIVE_BOARDS = new Set(['greenhouse', 'lever', 'ashby', 'smartrecruiters']);
 
 export function filterJob(job: RawJob, cfg: SearchConfig): FilterResult {
   const problem =

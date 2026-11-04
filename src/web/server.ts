@@ -41,6 +41,8 @@ export interface DashboardOptions {
   /** Prefill a batch of tabs as soon as the dashboard starts. */
   autoBatch?: boolean;
   batchSize?: number;
+  /** How ready jobs are sorted into saved batches (config/search.yaml `batch`). */
+  batching?: { includeNearMisses?: boolean; nearMissMinScore?: number };
   /** Replaces the job-fetch pipeline (tests). */
   runJobs?: (log: (line: string) => void) => Promise<unknown>;
 }
@@ -82,6 +84,22 @@ export async function startDashboard(store: JobStore, opts: DashboardOptions = {
     const j = store.get(Number(params[0]));
     if (!j) throw new HttpProblem(404, 'No such job');
     return j;
+  };
+  /** Sorts any ready jobs not yet in a batch into batches (cheap when there are none). */
+  const assign = () =>
+    store.assignBatches(batchSize, { includeNearMisses: opts.batching?.includeNearMisses ?? true, nearMissMinScore: opts.batching?.nearMissMinScore ?? 65 });
+  const batchOrThrow = (params: string[]) => {
+    if (!store.batches().some((b) => b.id === Number(params[0]))) throw new HttpProblem(404, 'No such batch');
+    return true;
+  };
+  /** Opens feed jobs in your default browser and asks later whether you applied. */
+  const openManual = (items: { id: number; url: string; state: string }[]) => {
+    const manual = items.filter((i) => i.state === 'manual');
+    for (const i of manual) {
+      openInBrowser(i.url);
+      store.finishAttempt(store.startAttempt(i.id, i.url), 'closed_unconfirmed', { openedIn: 'your browser' });
+    }
+    return manual.length;
   };
   const session = (params: string[]) => {
     const s = manager.get(Number(params[0]));
@@ -208,21 +226,32 @@ export async function startDashboard(store: JobStore, opts: DashboardOptions = {
       return s.snapshot();
     }],
 
-    // ---------------------------------------------------------------- batch prefill
-    ['GET', /^\/api\/batch$/, () => manager.batchStatus()],
-    ['POST', /^\/api\/batch$/, ({ body }) => {
-      manager.startBatch(typeof body.size === 'number' ? body.size : batchSize);
+    // ---------------------------------------------------------------- saved batches
+    ['GET', /^\/api\/batches$/, () => {
+      assign();
+      return manager.batchList();
+    }],
+    ['GET', /^\/api\/batches\/(\d+)$/, ({ params }) => batchOrThrow(params) && { items: manager.batchItems(Number(params[0])) }],
+    ['POST', /^\/api\/batches\/(\d+)\/start$/, ({ params }) => {
+      batchOrThrow(params);
+      if (manager.batch?.filling) throw new HttpProblem(409, `Batch ${manager.batch.batchId ?? ''} is still filling tabs. Wait for it to finish.`);
+      manager.startBatch({ batchId: Number(params[0]) });
       return manager.batchStatus();
     }],
-    ['POST', /^\/api\/batch\/open-manual$/, () => {
-      // Opens the batch's feed jobs in your default browser and asks later whether you applied.
-      const items = manager.batchStatus()?.items.filter((i) => i.state === 'manual') ?? [];
-      for (const i of items) {
-        openInBrowser(i.url);
-        store.finishAttempt(store.startAttempt(i.id, i.url), 'closed_unconfirmed', { openedIn: 'your browser' });
-      }
-      return { opened: items.length };
+    ['POST', /^\/api\/batches\/(\d+)\/open-manual$/, ({ params }) => {
+      batchOrThrow(params);
+      return { opened: openManual(manager.batchItems(Number(params[0]))) };
     }],
+
+    // The batch being worked on now (live tab states), and "start the next one".
+    ['GET', /^\/api\/batch$/, () => manager.batchStatus()],
+    ['POST', /^\/api\/batch$/, () => {
+      assign();
+      const next = manager.nextBatchId();
+      if (next) manager.startBatch({ batchId: next });
+      return manager.batchStatus();
+    }],
+    ['POST', /^\/api\/batch\/open-manual$/, () => ({ opened: openManual(manager.batchStatus()?.items ?? []) })],
     ['GET', /^\/api\/confirmations$/, () => store.pendingConfirmations().map(listItem)],
     ['POST', /^\/api\/jobs\/(\d+)\/confirm$/, ({ params, body }) => {
       const j = job(params);
@@ -375,7 +404,11 @@ export async function startDashboard(store: JobStore, opts: DashboardOptions = {
   });
   const address = server.address();
   if (address && typeof address === 'object') port = address.port;
-  if (opts.autoBatch) manager.startBatch(batchSize);
+  assign();
+  if (opts.autoBatch) {
+    const next = manager.nextBatchId();
+    if (next) manager.startBatch({ batchId: next });
+  }
 
   return {
     url: `http://127.0.0.1:${port}`,

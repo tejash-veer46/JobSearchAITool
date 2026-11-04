@@ -1,10 +1,10 @@
 import { env, type SearchConfig } from '../config.js';
 import { HttpError } from '../lib/http.js';
 import type { RawJob } from '../types.js';
-import { type Company, fetchAshby, fetchGreenhouse, fetchLever } from './ats.js';
+import { type Company, fetchAshby, fetchGreenhouse, fetchLever, fetchSmartRecruiters } from './ats.js';
 import { fetchAdzuna, fetchHimalayas, fetchRemotive } from './feeds.js';
 
-export const SOURCE_NAMES = ['greenhouse', 'lever', 'ashby', 'himalayas', 'remotive', 'adzuna'] as const;
+export const SOURCE_NAMES = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'himalayas', 'remotive', 'adzuna'] as const;
 export type SourceName = (typeof SOURCE_NAMES)[number];
 
 interface Task {
@@ -30,6 +30,7 @@ function buildTasks(cfg: SearchConfig, only?: SourceName[]): { tasks: Task[]; sk
   ats('greenhouse', cfg.sources.greenhouse, fetchGreenhouse);
   ats('lever', cfg.sources.lever, fetchLever);
   ats('ashby', cfg.sources.ashby, fetchAshby);
+  ats('smartrecruiters', cfg.sources.smartrecruiters, fetchSmartRecruiters);
 
   const { himalayas, remotive, adzuna } = cfg.sources;
   if (want('himalayas') && himalayas.enabled)

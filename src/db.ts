@@ -111,6 +111,19 @@ CREATE TABLE IF NOT EXISTS application_events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_at ON application_events (at);
 
+-- Numbered groups of jobs to apply to together; each job belongs to at most one batch.
+CREATE TABLE IF NOT EXISTS batches (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL,
+  started_at TEXT
+);
+CREATE TABLE IF NOT EXISTS batch_jobs (
+  batch_id INTEGER NOT NULL REFERENCES batches (id),
+  job_id   INTEGER NOT NULL UNIQUE REFERENCES jobs (id),
+  position INTEGER NOT NULL,
+  stretch  INTEGER NOT NULL DEFAULT 0   -- a near miss (scored just below the bar) added to fill batches
+);
+
 CREATE TABLE IF NOT EXISTS runs (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   started_at  TEXT NOT NULL,
@@ -328,6 +341,82 @@ export class JobStore {
       )
       .all()
       .map((r) => toRow(r as Record<string, unknown>));
+  }
+
+  // ---------------------------------------------------------------- saved batches
+
+  /**
+   * Puts every job worth applying to that isn't in a batch yet into numbered batches of `size`:
+   * ready jobs first, then (optionally) near misses on fully fillable sites. Fully fillable sites
+   * go first, then by score. An unstarted, unfilled last batch is topped up before a new one starts.
+   * Returns how many new batches were created.
+   */
+  assignBatches(size: number, opts: { includeNearMisses?: boolean; nearMissMinScore?: number } = {}): number {
+    const nearMiss = opts.includeNearMisses
+      ? `OR (j.status = 'REJECTED' AND j.reject_stage = 'score' AND j.match_score >= ${Number(opts.nearMissMinScore ?? 65)}
+             AND j.platform IN ('greenhouse','lever','ashby'))`
+      : '';
+    const rows = this.db
+      .prepare(
+        `SELECT j.id, j.status FROM jobs j
+         WHERE (j.status = 'STAGED' ${nearMiss})
+           AND NOT EXISTS (SELECT 1 FROM batch_jobs b WHERE b.job_id = j.id)
+         ORDER BY CASE j.status WHEN 'STAGED' THEN 0 ELSE 1 END,
+                  CASE j.platform WHEN 'greenhouse' THEN 0 WHEN 'lever' THEN 0 WHEN 'ashby' THEN 1
+                                  WHEN 'himalayas' THEN 3 WHEN 'remotive' THEN 3 ELSE 2 END,
+                  j.match_score DESC, j.id`,
+      )
+      .all() as { id: number; status: string }[];
+    if (!rows.length) return 0;
+
+    const insert = this.db.prepare('INSERT INTO batch_jobs (batch_id, job_id, position, stretch) VALUES (?, ?, ?, ?)');
+    const countIn = (id: number) => Number((this.db.prepare('SELECT COUNT(*) n FROM batch_jobs WHERE batch_id = ?').get(id) as { n: number }).n);
+    let created = 0;
+    let current = this.db
+      .prepare('SELECT id FROM batches WHERE started_at IS NULL ORDER BY id DESC LIMIT 1')
+      .get() as { id: number } | undefined;
+    let filled = current ? countIn(current.id) : size;
+    if (filled >= size) current = undefined;
+    this.db.exec('BEGIN');
+    try {
+      for (const r of rows) {
+        if (!current || filled >= size) {
+          current = { id: Number(this.db.prepare('INSERT INTO batches (created_at) VALUES (?)').run(now()).lastInsertRowid) };
+          filled = 0;
+          created++;
+        }
+        insert.run(current.id, r.id, filled++, r.status === 'STAGED' ? 0 : 1);
+      }
+      this.db.exec('COMMIT');
+    } catch (err) {
+      this.db.exec('ROLLBACK');
+      throw err;
+    }
+    return created;
+  }
+
+  /** Every batch, newest first, with its jobs. */
+  batches(): { id: number; created_at: string; started_at: string | null; jobs: (JobRow & { stretch: boolean; last_outcome: string | null })[] }[] {
+    const list = this.db.prepare('SELECT * FROM batches ORDER BY id DESC').all() as { id: number; created_at: string; started_at: string | null }[];
+    return list.map((b) => ({ ...b, jobs: this.batchJobs(b.id) }));
+  }
+
+  batchJobs(batchId: number): (JobRow & { stretch: boolean; last_outcome: string | null })[] {
+    return this.db
+      .prepare(
+        `SELECT j.*, b.stretch, (SELECT outcome FROM apply_attempts a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS last_outcome,
+                (SELECT COUNT(*) FROM apply_attempts a WHERE a.job_id = j.id AND a.finished_at IS NULL) AS open_attempts
+         FROM batch_jobs b JOIN jobs j ON j.id = b.job_id WHERE b.batch_id = ? ORDER BY b.position`,
+      )
+      .all(batchId)
+      .map((r) => {
+        const row = toRow(r as Record<string, unknown>) as JobRow & { stretch: unknown; last_outcome: string | null; open_attempts: unknown };
+        return { ...row, stretch: Number(row.stretch) === 1, last_outcome: Number(row.open_attempts) > 0 ? 'open' : row.last_outcome };
+      });
+  }
+
+  markBatchStarted(batchId: number): void {
+    this.db.prepare('UPDATE batches SET started_at = COALESCE(started_at, ?) WHERE id = ?').run(now(), batchId);
   }
 
   setLatestAttemptOutcome(jobId: number, outcome: string): void {

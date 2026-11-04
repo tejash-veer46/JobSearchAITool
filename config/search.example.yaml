@@ -21,8 +21,12 @@ scoring:
 batch:
   # Jobs prefilled per batch, each in its own tab. You review and submit each tab yourself.
   size: 20
-  # Start a batch automatically when the dashboard opens.
-  auto_start: true
+  # true = start the oldest unfinished batch when the dashboard opens; false = you pick one.
+  auto_start: false
+  # Also batch near misses (scored just below qualify_threshold) on fully fillable sites,
+  # shown as "stretch". More prefilled jobs; switch off for ready jobs only.
+  include_near_misses: true
+  near_miss_min_score: 65
 
 blacklist_companies:
   # Companies never to apply to, e.g. your current employer. Whole words, case-insensitive.
@@ -150,6 +154,22 @@ sources:
     - { slug: pebl, name: Pebl }
     - { slug: Wisdom-AI, name: Wisdom AI }
     - { slug: broccoli, name: Broccoli AI }
+
+  # SmartRecruiters: the slug is the part after jobs.smartrecruiters.com/ (only India postings are read).
+  smartrecruiters:
+    - { slug: Eurofins, name: Eurofins }
+    - { slug: BoschGroup, name: Bosch }
+    - { slug: Experian, name: Experian }
+    - { slug: TheNielsenCompany, name: Nielsen }
+    - { slug: Acumatica, name: Acumatica }
+    - { slug: Custom-Soft, name: Custom-Soft }
+    - { slug: Freshworks, name: Freshworks }
+    - { slug: ServiceNow, name: ServiceNow }
+    - { slug: Swiggy, name: Swiggy }
+    - { slug: Grab, name: Grab }
+    - { slug: Unacademy, name: Unacademy }
+    - { slug: WesternDigital, name: Western Digital }
+    - { slug: Ubisoft2, name: Ubisoft }
 
   # Job-search feeds (keyword based)
   himalayas:

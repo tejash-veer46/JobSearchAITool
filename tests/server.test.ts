@@ -118,6 +118,34 @@ describe('dashboard API', () => {
     }
   });
 
+  it('lists saved batches with counts and opens a chosen batch', async () => {
+    const own = new JobStore(':memory:');
+    const ids = Array.from({ length: 3 }, (_, n) => {
+      const { id } = own.upsertDiscovered(job({ platform: 'himalayas', externalId: `hb${n}`, url: `https://himalayas.app/jobs/${n}`, title: `QA ${n}` }));
+      own.setStatus(id, 'STAGED');
+      return id;
+    });
+    const opened: string[] = [];
+    const d = await startDashboard(own, { port: 0, batchSize: 2, openInBrowser: (u) => opened.push(u) });
+    try {
+      const get = (p: string) => fetch(d.url + p).then((r) => r.json());
+      const post = (p: string) => fetch(d.url + p, { method: 'POST', headers: { 'content-type': 'application/json', 'x-jobapplyai': '1' }, body: '{}' }).then((r) => r.json());
+      const list = await get('/api/batches');
+      expect(list.map((b: { total: number; toOpen: number; done: boolean }) => [b.total, b.toOpen, b.done])).toEqual([[1, 1, false], [2, 2, false]]);
+      const older = list[1].id;
+      expect((await get(`/api/batches/${older}`)).items.map((i: { id: number; state: string }) => [i.id, i.state])).toEqual([[ids[0], 'manual'], [ids[1], 'manual']]);
+
+      expect(await post(`/api/batches/${older}/start`)).toMatchObject({ batchId: older, filling: false });
+      expect(await post(`/api/batches/${older}/open-manual`)).toEqual({ opened: 2 });
+      expect(opened).toHaveLength(2);
+      const after = await get('/api/batches');
+      expect(after.find((b: { id: number }) => b.id === older)).toMatchObject({ active: true, toOpen: 0, awaiting: 2, done: true });
+      expect((await fetch(`${d.url}/api/batches/999/start`, { method: 'POST', headers: { 'x-jobapplyai': '1' } })).status).toBe(404);
+    } finally {
+      await d.close();
+    }
+  });
+
   it('runs the job fetch in the background and reports its log', async () => {
     expect((await post('/api/run', {})).status).toBe(200);
     await new Promise((r) => setTimeout(r, 50));

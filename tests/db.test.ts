@@ -121,6 +121,54 @@ describe('batch selection', () => {
   });
 });
 
+describe('saved batches', () => {
+  function seed(store: JobStore, specs: [platform: string, score: number, status: 'STAGED' | 'NEAR'][]) {
+    return specs.map(([platform, score, status], n) => {
+      const { id } = store.upsertDiscovered(job({ platform, externalId: `b${n}`, url: `https://e.com/b${n}`, title: `QA ${n}` }));
+      const m = { ...scoreWithRules(store.get(id)!, { profile, facts, threshold: 75, maxRequiredYears: 3 }), matchScore: score };
+      store.saveMatch(id, { ...m, isQualified: status === 'STAGED' }, 75);
+      return id;
+    });
+  }
+
+  it('sorts ready jobs into batches: fillable sites first, then score; feeds last', () => {
+    const store = new JobStore(':memory:');
+    const [feed, gh, lever, adz] = seed(store, [['himalayas', 99, 'STAGED'], ['greenhouse', 80, 'STAGED'], ['lever', 90, 'STAGED'], ['adzuna', 95, 'STAGED']]);
+    expect(store.assignBatches(2)).toBe(2);
+    const [second, first] = store.batches(); // newest first
+    expect(first!.jobs.map((j) => j.id)).toEqual([lever, gh]);
+    expect(second!.jobs.map((j) => j.id)).toEqual([adz, feed]);
+    expect(store.assignBatches(2)).toBe(0); // nothing new: each job is in exactly one batch
+  });
+
+  it('tops up an unstarted batch, but starts a new one once a batch has started', () => {
+    const store = new JobStore(':memory:');
+    seed(store, [['lever', 90, 'STAGED']]);
+    store.assignBatches(3);
+    const more = store.upsertDiscovered(job({ platform: 'lever', externalId: 'late', url: 'https://e.com/late', title: 'QA late' }));
+    store.setStatus(more.id, 'STAGED');
+    store.assignBatches(3);
+    expect(store.batches()).toHaveLength(1);
+    expect(store.batches()[0]!.jobs.map((j) => j.id)).toContain(more.id);
+
+    store.markBatchStarted(store.batches()[0]!.id);
+    const after = store.upsertDiscovered(job({ platform: 'lever', externalId: 'after', url: 'https://e.com/after', title: 'QA after' }));
+    store.setStatus(after.id, 'STAGED');
+    expect(store.assignBatches(3)).toBe(1);
+    expect(store.batches()[0]!.jobs.map((j) => j.id)).toEqual([after.id]);
+  });
+
+  it('adds near misses on fillable sites after ready jobs, marked as stretch', () => {
+    const store = new JobStore(':memory:');
+    const [ready, near, lowNear, feedNear] = seed(store, [['lever', 80, 'STAGED'], ['greenhouse', 70, 'NEAR'], ['greenhouse', 50, 'NEAR'], ['himalayas', 72, 'NEAR']]);
+    store.assignBatches(20, { includeNearMisses: true, nearMissMinScore: 65 });
+    const jobs = store.batches()[0]!.jobs;
+    expect(jobs.map((j) => [j.id, j.stretch])).toEqual([[ready, false], [near, true]]);
+    expect(jobs.map((j) => j.id)).not.toContain(lowNear);
+    expect(jobs.map((j) => j.id)).not.toContain(feedNear);
+  });
+});
+
 describe('reporter', () => {
   it('writes markdown, JSON and CSV with the staged jobs', () => {
     const store = new JobStore(':memory:');

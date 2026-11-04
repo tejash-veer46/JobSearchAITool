@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { htmlToText, fingerprint } from '../src/lib/text.js';
-import { mapAshby, mapGreenhouse, mapLever } from '../src/sources/ats.js';
+import { mapAshby, mapGreenhouse, mapLever, mapSmartRecruiters } from '../src/sources/ats.js';
 import { mapHimalayas, mapRemotive } from '../src/sources/feeds.js';
 
 const company = { slug: 'acme', name: 'Acme' };
@@ -57,6 +57,17 @@ describe('source mapping', () => {
     expect(
       mapRemotive({ id: 1, url: 'https://r/1', title: 'QA', company_name: 'Co', publication_date: '2026-10-01T08:00:00' }),
     ).toMatchObject({ location: 'Remote (Worldwide)', postedAt: '2026-10-01T08:00:00.000Z' });
+  });
+
+  it('smartrecruiters: India location, live apply link, sections joined', () => {
+    const j = mapSmartRecruiters(
+      { slug: 'Acme', name: 'Acme' },
+      { id: '7440', name: 'QA Automation Tester', releasedDate: '2026-11-03T10:11:14.201Z', location: { city: 'Bengaluru', country: 'in', hybrid: true, fullLocation: 'Bengaluru, KA, India' } },
+      { postingUrl: 'https://jobs.smartrecruiters.com/Acme/7440-qa', applyUrl: 'https://jobs.smartrecruiters.com/Acme/7440-qa?oga=true', jobAd: { sections: { jobDescription: { title: 'Job Description', text: '<p>Playwright and API testing</p>' } } } },
+    );
+    expect(j).toMatchObject({ platform: 'smartrecruiters', externalId: 'Acme:7440', location: 'Bengaluru, KA, India', workplace: 'hybrid', applyUrl: 'https://jobs.smartrecruiters.com/Acme/7440-qa?oga=true' });
+    expect(j.description).toContain('Playwright and API testing');
+    expect(mapSmartRecruiters({ slug: 'Acme', name: 'Acme' }, { id: '1', name: 'QA', location: { city: 'Krakow', country: 'pl' } }).location).toBe('Krakow, pl (PL)');
   });
 
   it('bad dates become null instead of throwing', () => {

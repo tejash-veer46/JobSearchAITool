@@ -104,6 +104,15 @@ export async function runPipeline(store: JobStore, opts: RunOptions = {}): Promi
     }
   }
   log(`${stats.new} new, ${stats.filteredOut} filtered out, ${stats.seen} seen before, ${stats.duplicates} duplicates.`);
+  const reasons = Object.entries(stats.filterReasons).sort((a, b) => b[1] - a[1]);
+  if (reasons.length) log(`Filtered out because of: ${reasons.map(([r, n]) => `${r} ${n}`).join(', ')}`);
+  if (stats.new > 0 && stats.filteredOut === stats.new) {
+    log(
+      'Every new posting was filtered out. "title" means not a QA/testing role, "seniority" a senior/lead title, ' +
+        '"experience" more years than filters.max_required_years in config/search.yaml, "location" outside India. ' +
+        'Adjust config/search.yaml if these are jobs you want, then run "npm run cli -- refilter".',
+    );
+  }
 
   if (opts.score !== false) {
     const ctx: MatchContext = {
@@ -114,6 +123,12 @@ export async function runPipeline(store: JobStore, opts: RunOptions = {}): Promi
     };
     await scorePending(store, ctx, opts.limit ?? cfg.scoring.max_scored_per_run, opts.rescore ?? false, stats, log);
   }
+
+  const created = store.assignBatches(cfg.batch.size, {
+    includeNearMisses: cfg.batch.include_near_misses,
+    nearMissMinScore: cfg.batch.near_miss_min_score,
+  });
+  if (created) log(`Sorted new jobs into ${created} new batch(es) of up to ${cfg.batch.size}. Open the Batch view to start one.`);
 
   stats.finishedAt = new Date().toISOString();
   store.finishRun(runId, stats);

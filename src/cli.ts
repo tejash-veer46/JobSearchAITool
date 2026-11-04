@@ -7,7 +7,7 @@ import { ApplyManager } from './apply/manager.js';
 import { previewForm } from './apply/preview.js';
 import { runApplyInTerminal } from './apply/terminal.js';
 import { startDashboard } from './web/server.js';
-import { loadProfileFacts, loadSearchConfig, paths } from './config.js';
+import { loadProfileFacts, loadSearchConfig, paths, syncSearchConfig } from './config.js';
 import { JobStore } from './db.js';
 import { ASK_USER } from './engine/matcher.js';
 import { refilterAll, runPipeline, scorePending } from './engine/pipeline.js';
@@ -182,10 +182,24 @@ program
     const store = new JobStore(paths.db);
     const { batch } = loadSearchConfig();
     const autoBatch = opts.batch && batch.auto_start;
-    const { url } = await startDashboard(store, { autoBatch, batchSize: batch.size });
+    const { url } = await startDashboard(store, {
+      autoBatch,
+      batchSize: batch.size,
+      batching: { includeNearMisses: batch.include_near_misses, nearMissMinScore: batch.near_miss_min_score },
+    });
     console.log(`Dashboard: ${url}  (Ctrl+C to stop)`);
-    if (autoBatch) console.log(`Prefilling up to ${batch.size} jobs in the assistant browser. Nothing is submitted; you submit each tab.`);
+    console.log(autoBatch ? 'Prefilling the oldest unfinished batch in the assistant browser. Nothing is submitted; you submit each tab.' : 'Open the Batch view and press Start on the batch you want.');
     if (opts.open) exec(process.platform === 'win32' ? `start "" "${url}"` : `open "${url}"`);
+  });
+
+program
+  .command('sync-config')
+  .description('Add new companies and settings from config/search.example.yaml to your config/search.yaml (run by setup)')
+  .action(() => {
+    const { companies, settings } = syncSearchConfig();
+    if (!companies.length && !settings.length) return console.log('Your config/search.yaml is up to date.');
+    if (settings.length) console.log(`Added settings: ${settings.join(', ')}`);
+    if (companies.length) console.log(`Added ${companies.length} company board(s): ${companies.join(', ')}`);
   });
 
 program
